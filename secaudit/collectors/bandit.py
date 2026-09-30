@@ -1,15 +1,30 @@
-"""bandit -r <repo> -f json -q -x <repo>/.venv,<repo>/node_modules"""
+"""bandit -r <repo> -f json -q -x <excludes> — test paths excluded (spec inv. 19)."""
 from __future__ import annotations
 
 import json
 import shutil  # noqa: F401 - re-exported so tests can monkeypatch bandit.shutil.which
 import subprocess
+from fnmatch import fnmatch
+from pathlib import PurePosixPath
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
 from .base import Context, ToolMissing, find_tool, relpath
 
 SOURCE = "bandit"
+
+# `assert` and `/tmp` in tests are not security findings: 4036 of 4328 on the
+# first live run. Secrets in tests are gitleaks' job. bandit's -x takes globs.
+EXCLUDE_DIRS = (".venv", "node_modules", ".git", "tests", "test", "e2e")
+EXCLUDE_GLOBS = ("**/test_*.py", "**/*_test.py", "**/conftest.py")
+
+
+def is_test_path(path: str) -> bool:
+    parts = PurePosixPath(path).parts
+    if any(part in {"tests", "test", "e2e"} for part in parts[:-1]):
+        return True
+    name = parts[-1] if parts else ""
+    return name == "conftest.py" or fnmatch(name, "test_*.py") or fnmatch(name, "*_test.py")
 
 
 def tool_version() -> str | None:
@@ -28,7 +43,7 @@ def run(ctx: Context) -> dict:
     exe = find_tool("bandit")
     if exe is None:
         raise ToolMissing("bandit not installed")
-    exclude = f"{ctx.repo}/.venv,{ctx.repo}/node_modules"
+    exclude = ",".join([*(f"{ctx.repo}/{d}" for d in EXCLUDE_DIRS), *(f"{ctx.repo}/{g}" for g in EXCLUDE_GLOBS)])
     result = subprocess.run(
         [exe, "-r", str(ctx.repo), "-f", "json", "-q", "-x", exclude],
         capture_output=True, text=True, check=False,
@@ -48,7 +63,10 @@ def run(ctx: Context) -> dict:
 def parse(raw: dict, ctx: Context) -> list[Finding]:
     findings = []
     for item in raw.get("results", []):
-        location = {"file": relpath(item["filename"], ctx.repo), "line": item.get("line_number")}
+        file = relpath(item["filename"], ctx.repo)
+        if is_test_path(file):
+            continue
+        location = {"file": file, "line": item.get("line_number")}
         evidence = item.get("issue_text")
         cwe = f"CWE-{item['issue_cwe']['id']}" if item.get("issue_cwe") else None
         more_info = item.get("more_info")
