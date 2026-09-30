@@ -86,7 +86,12 @@ in `run.skipped` and continues. Any other exception from `run` → recorded in
 `run.skipped` with `reason="error: ..."` and exit code stays as computed from
 the findings (a broken collector must not hide the other five).
 
-- **bandit**: `bandit -r <repo> -f json -q -x <repo>/.venv,<repo>/node_modules`,
+- **bandit**: `bandit -r <repo> -f json -q -x <excludes>` where `<excludes>`
+  is `.venv`, `node_modules`, `.git`, and the test paths `tests`, `test`,
+  `e2e`, `**/test_*.py`, `**/*_test.py`, `**/conftest.py` (bandit's `-x`
+  takes globs). `assert` and `/tmp` in tests are not security findings and
+  drowned the first live run (4036 of 4328). Secrets in tests are gitleaks'
+  job, not bandit's;
   stdout only (stderr is log noise). Exit `1` means findings, not failure:
   `run()` parses stdout for any exit code; bandit prints a `Working...`
   progress line to stdout ahead of the JSON when stdout is not a TTY and
@@ -210,6 +215,11 @@ list this way instead of locating the installed package.
 18. pip-audit `run()` with a fake `<repo>/.venv/bin/python` → the command
     passed to `subprocess.run` contains `-r`, `--disable-pip` and never
     `--local`; the freeze is taken with that python, not `sys.executable`.
+
+19. bandit `run()` passes the test-path excludes above in `-x`; a parsed
+    result never contains a finding whose file is under `tests/` or is a
+    `test_*.py` / `conftest.py` (`parse` drops them too, in case the tool
+    ignores a glob).
 
 ## By hand (after green)
 
