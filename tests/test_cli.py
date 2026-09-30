@@ -10,7 +10,11 @@ an "error:" prefixed reason; the others still run.
 
 Invariant 9: --fail-on default is high; a medium finding alone exits 0, a
 high finding exits 1; --fail-on medium with a medium finding exits 1.
+
+Invariant 14: `secaudit checklist` prints the packaged generic.md
+byte-for-byte, exit 0.
 """
+import importlib.resources
 import json
 from pathlib import Path
 

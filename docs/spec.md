@@ -86,15 +86,21 @@ in `run.skipped` and continues. Any other exception from `run` → recorded in
 `run.skipped` with `reason="error: ..."` and exit code stays as computed from
 the findings (a broken collector must not hide the other five).
 
-- **bandit**: `bandit -r <repo> -f json -x <repo>/.venv,<repo>/node_modules`.
-  Fixture: `bandit.json`.
+- **bandit**: `bandit -r <repo> -f json -q -x <repo>/.venv,<repo>/node_modules`,
+  stdout only (stderr is log noise). Exit `1` means findings, not failure:
+  `run()` parses stdout for any exit code and raises only when stdout is not
+  JSON. Fixture: `bandit.json`.
 - **semgrep**: `semgrep --config auto --json --quiet <repo>`. Fixture:
   `semgrep.json`. `--config auto` needs network; with `SECAUDIT_OFFLINE=1`
   the collector raises `ToolMissing("semgrep rules need network")` and is
   skipped like an absent binary.
-- **pip-audit**: `pip-audit -r <requirements>` when present, else
-  `pip-audit --local` inside the repo's `.venv` if it exists, else skipped.
-  Output `-f json`. Fixture: `pip_audit.json`.
+- **pip-audit**: audits the **target's** environment, never its own. When
+  `<repo>/.venv/bin/python` exists: `<that python> -m pip freeze` to a temp
+  file, then `pip-audit -r <tmp> --disable-pip -f json` (pinned input, no
+  resolution, no install). Else `requirements.txt` → `pip-audit -r … -f json`.
+  Else `ToolMissing("no virtualenv or requirements file")`. `--local` is
+  never used: it would audit the venv `secaudit` is installed in. Fixture:
+  `pip_audit.json`.
 - **osv**: `osv-scanner --format json -r <repo>`; scans every lockfile it
   finds. Fixture: `osv.json`.
 - **gitleaks**: `gitleaks detect -s <repo> -f json -r <tmp>`; a finding whose
@@ -195,6 +201,12 @@ list this way instead of locating the installed package.
     written; one of them ran → exit computed from findings as usual.
 16. A binary present only next to `sys.executable` is found (`tool_version()`
     not None) when it is absent from `PATH`.
+
+17. bandit `run()` with `subprocess.run` monkeypatched to return exit 1,
+    JSON on stdout and text on stderr → parsed findings, not `skipped`.
+18. pip-audit `run()` with a fake `<repo>/.venv/bin/python` → the command
+    passed to `subprocess.run` contains `-r`, `--disable-pip` and never
+    `--local`; the freeze is taken with that python, not `sys.executable`.
 
 ## By hand (after green)
 
