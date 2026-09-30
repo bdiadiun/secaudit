@@ -140,6 +140,12 @@ with reasons; `resolved` last. Each finding: `id`, `source/rule`, location,
 title, evidence (fenced), remediation, references. Deterministic ordering →
 byte-identical output for the same input.
 
+## `checklist` command
+
+`secaudit checklist` prints `secaudit/checklist/generic.md` to stdout,
+unchanged, exit `0`. The consumer (an agent in a worktree) reads the generic
+list this way instead of locating the installed package.
+
 ## Invariants (test one-to-one)
 
 1. `Finding.id` is stable under line-number change and digit change in
@@ -169,6 +175,9 @@ byte-identical output for the same input.
     required fields and a location of the shape the table prescribes.
 13. `Report` JSON round-trips through `schema.py` without loss;
     `schema_version` is `"1.0"`.
+
+14. `secaudit checklist` prints the packaged `generic.md` byte-for-byte,
+    exit 0.
 
 ## By hand (after green)
 
