@@ -183,3 +183,10 @@ def test_fail_on_medium_with_medium_finding_exits_1(tmp_path, monkeypatch):
         "scan", "--repo", str(tmp_path), "--out", str(out), "--fail-on", "medium",
     ])
     assert result.exit_code == 1
+
+
+def test_checklist_prints_packaged_generic_md():
+    packaged = importlib.resources.files("secaudit").joinpath("checklist/generic.md").read_bytes()
+    result = runner.invoke(app, ["checklist"])
+    assert result.exit_code == 0
+    assert result.stdout_bytes == packaged
