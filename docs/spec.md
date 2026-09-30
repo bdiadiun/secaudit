@@ -110,6 +110,18 @@ the findings (a broken collector must not hide the other five).
   only collector that talks to the target itself; it never sends valid
   credentials and never exceeds 30 requests per path.
 
+## Tool discovery and the empty scan
+
+A collector finds its binary on `PATH` **and** in the directory of
+`sys.executable` (the venv `secaudit` runs from — `pip install secaudit
+bandit` into one venv must work without activating it). `run.tools[source]`
+carries the version string of what was found.
+
+A scan in which **no** repository collector ran (every one of bandit,
+semgrep, pip-audit, osv, gitleaks is in `run.skipped`) is not a clean scan:
+exit `2`, message "no scanner ran", `findings.json` still written so the
+reason is inspectable. `--url`-only collectors do not count.
+
 ## Loopback rule
 
 `--url` host must resolve to a loopback literal: `127.0.0.1`, `::1`,
@@ -178,6 +190,11 @@ list this way instead of locating the installed package.
 
 14. `secaudit checklist` prints the packaged `generic.md` byte-for-byte,
     exit 0.
+
+15. All five repository collectors skipped → exit 2 and `findings.json`
+    written; one of them ran → exit computed from findings as usual.
+16. A binary present only next to `sys.executable` is found (`tool_version()`
+    not None) when it is absent from `PATH`.
 
 ## By hand (after green)
 
