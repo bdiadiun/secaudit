@@ -89,9 +89,9 @@ the findings (a broken collector must not hide the other five).
 - **bandit**: `bandit -r <repo> -f json -x <repo>/.venv,<repo>/node_modules`.
   Fixture: `bandit.json`.
 - **semgrep**: `semgrep --config auto --json --quiet <repo>`. Fixture:
-  `semgrep.json`. `--config auto` needs network; when `SECAUDIT_OFFLINE=1`
-  use `p/python p/javascript` … no, offline means `ToolMissing("semgrep
-  rules need network")`.
+  `semgrep.json`. `--config auto` needs network; with `SECAUDIT_OFFLINE=1`
+  the collector raises `ToolMissing("semgrep rules need network")` and is
+  skipped like an absent binary.
 - **pip-audit**: `pip-audit -r <requirements>` when present, else
   `pip-audit --local` inside the repo's `.venv` if it exists, else skipped.
   Output `-f json`. Fixture: `pip_audit.json`.
