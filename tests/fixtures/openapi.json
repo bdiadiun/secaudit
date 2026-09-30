@@ -1,0 +1,28 @@
+{
+  "openapi": "3.0.3",
+  "info": {"title": "orchestrator", "version": "1.0"},
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login",
+        "requestBody": {
+          "content": {"application/json": {"schema": {"type": "object"}}}
+        },
+        "responses": {"200": {"description": "ok"}}
+      }
+    },
+    "/api/v1/tasks": {
+      "get": {
+        "summary": "List tasks",
+        "responses": {"200": {"description": "ok"}}
+      },
+      "post": {
+        "summary": "Create task",
+        "requestBody": {
+          "content": {"application/json": {"schema": {"type": "object"}}}
+        },
+        "responses": {"201": {"description": "created"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "results": [
+    {
+      "source": {"path": "requirements.txt", "type": "lockfile"},
+      "packages": [
+        {
+          "package": {"name": "django", "version": "3.2.0", "ecosystem": "PyPI"},
+          "vulnerabilities": [
+            {
+              "id": "GHSA-8c4r-8v5j-8v5j",
+              "summary": "SQL injection in Django QuerySet.filter() on PostgreSQL",
+              "severity": [{"type": "CVSS_V3", "score": "9.8"}],
+              "database_specific": {"cvss": {"score": 9.8}},
+              "affected": [
+                {
+                  "package": {"name": "django", "ecosystem": "PyPI"},
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [{"introduced": "3.0.0"}, {"fixed": "3.2.19"}]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "package": {"name": "pyyaml", "version": "5.3", "ecosystem": "PyPI"},
+          "vulnerabilities": [
+            {
+              "id": "GHSA-8q59-q6h6-9v52",
+              "summary": "Arbitrary code execution in PyYAML full_load",
+              "severity": [{"type": "CVSS_V3", "score": "7.0"}],
+              "affected": [
+                {
+                  "package": {"name": "pyyaml", "ecosystem": "PyPI"},
+                  "ranges": [
+                    {
+                      "type": "SEMVER",
+                      "events": [{"introduced": "0"}, {"fixed": "5.4"}]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

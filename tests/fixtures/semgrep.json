@@ -1,0 +1,41 @@
+{
+  "results": [
+    {
+      "check_id": "python.lang.security.audit.dangerous-subprocess-use.dangerous-subprocess-use",
+      "path": "app/utils.py",
+      "start": {"line": 11, "col": 1, "offset": 200},
+      "end": {"line": 11, "col": 34, "offset": 233},
+      "extra": {
+        "message": "Detected subprocess function with shell=True.",
+        "metadata": {
+          "cwe": ["CWE-78: Improper Neutralization of Special Elements used in an OS Command"],
+          "owasp": ["A03:2021"],
+          "severity": "WARNING",
+          "references": ["https://example.com/cmd-injection"]
+        },
+        "severity": "WARNING",
+        "lines": "subprocess.call(cmd, shell=True)",
+        "fix": "subprocess.call(cmd, shell=False)"
+      }
+    },
+    {
+      "check_id": "python.flask.security.audit.secure-cookies.secure-set-cookie-missing-httponly",
+      "path": "app/views.py",
+      "start": {"line": 40, "col": 5, "offset": 900},
+      "end": {"line": 40, "col": 55, "offset": 950},
+      "extra": {
+        "message": "Cookie is set without HttpOnly flag which exposes it to XSS.",
+        "metadata": {
+          "cwe": ["CWE-1004: Sensitive Cookie Without HttpOnly Flag"],
+          "severity": "CRITICAL",
+          "references": []
+        },
+        "severity": "ERROR",
+        "lines": "resp.set_cookie('session', token)",
+        "fix": null
+      }
+    }
+  ],
+  "errors": [],
+  "paths": {"scanned": ["app/utils.py", "app/views.py"]}
+}

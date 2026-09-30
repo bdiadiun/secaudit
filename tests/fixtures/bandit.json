@@ -1,0 +1,51 @@
+{
+  "errors": [],
+  "generated_at": "2024-06-01T12:00:00Z",
+  "metrics": {
+    "_totals": {
+      "SEVERITY.HIGH": 1,
+      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.LOW": 0,
+      "loc": 240,
+      "nosec": 0
+    }
+  },
+  "results": [
+    {
+      "code": "10\timport subprocess\n11\tsubprocess.call(cmd, shell=True)\n12\t\n",
+      "col_offset": 0,
+      "end_col_offset": 33,
+      "filename": "app/utils.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 78,
+        "link": "https://cwe.mitre.org/data/definitions/78.html"
+      },
+      "issue_severity": "HIGH",
+      "issue_text": "subprocess call with shell=True identifies security issue.",
+      "line_number": 11,
+      "line_range": [11],
+      "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b602_subprocess_popen_with_shell_equals_true.html",
+      "test_id": "B602",
+      "test_name": "subprocess_popen_with_shell_equals_true"
+    },
+    {
+      "code": "3\timport hashlib\n4\th = hashlib.md5(data)\n5\t\n",
+      "col_offset": 4,
+      "end_col_offset": 22,
+      "filename": "app/crypto.py",
+      "issue_confidence": "HIGH",
+      "issue_cwe": {
+        "id": 327,
+        "link": "https://cwe.mitre.org/data/definitions/327.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Use of weak MD5 hash for security.",
+      "line_number": 4,
+      "line_range": [4],
+      "more_info": "https://bandit.readthedocs.io/en/latest/blacklists/blacklist_calls.html#b303-md5",
+      "test_id": "B303",
+      "test_name": "blacklist"
+    }
+  ]
+}

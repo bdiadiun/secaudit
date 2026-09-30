@@ -1,0 +1,29 @@
+{
+  "dependencies": [
+    {
+      "name": "requests",
+      "version": "2.25.0",
+      "vulns": [
+        {
+          "id": "GHSA-x84v-xcm2-53pg",
+          "fix_versions": ["2.31.0"],
+          "aliases": ["CVE-2023-32681"],
+          "description": "Requests leaks Proxy-Authorization header on cross-origin redirects."
+        }
+      ]
+    },
+    {
+      "name": "jinja2",
+      "version": "2.11.2",
+      "vulns": [
+        {
+          "id": "PYSEC-2021-66",
+          "fix_versions": [],
+          "aliases": ["CVE-2020-28493"],
+          "description": "Jinja2 before 2.11.3 is vulnerable to ReDoS via the urlize filter."
+        }
+      ]
+    }
+  ],
+  "fixes": []
+}
