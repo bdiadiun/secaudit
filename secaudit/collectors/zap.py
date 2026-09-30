@@ -5,20 +5,19 @@ mode only — passive, nothing fuzzes or brute-forces.
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing
+from .base import Context, ToolMissing, find_tool
 
 SOURCE = "zap"
 
 
 def tool_version() -> str | None:
-    exe = shutil.which("docker")
+    exe = find_tool("docker")
     if exe is None:
         return None
     try:
@@ -32,7 +31,7 @@ def tool_version() -> str | None:
 def run(ctx: Context) -> dict:
     if ctx.url is None:
         raise ToolMissing("zap requires --url")
-    exe = shutil.which("docker")
+    exe = find_tool("docker")
     if exe is None:
         raise ToolMissing("docker not installed")
     with tempfile.TemporaryDirectory() as tmp:

@@ -1,5 +1,9 @@
-"""pip-audit -r <requirements> when present, else pip-audit --local inside
-the repo's .venv if it exists, else skipped. Output -f json.
+"""pip-audit against the **target** repo's own environment, never secaudit's:
+when `<repo>/.venv/bin/python` exists, freeze it with that interpreter (not
+sys.executable) and audit the frozen list with `-r ... --disable-pip` so
+pip-audit resolves nothing and installs nothing. Else fall back to
+`<repo>/requirements.txt`. Else skipped. `--local` is never used: it would
+audit the venv secaudit itself runs from.
 
 Module is named pip_audit (valid identifier); the finding source string is
 still "pip-audit" per docs/spec.md.
@@ -7,18 +11,20 @@ still "pip-audit" per docs/spec.md.
 from __future__ import annotations
 
 import json
-import shutil
+import shutil  # noqa: F401 - re-exported so tests can monkeypatch pip_audit.shutil.which
 import subprocess
+import tempfile
+from pathlib import Path
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing
+from .base import Context, ToolMissing, find_tool
 
 SOURCE = "pip-audit"
 
 
 def tool_version() -> str | None:
-    exe = shutil.which("pip-audit")
+    exe = find_tool("pip-audit")
     if exe is None:
         return None
     try:
@@ -29,19 +35,39 @@ def tool_version() -> str | None:
     return version or None
 
 
+def _freeze(python: Path, cwd: Path | None) -> str:
+    result = subprocess.run(
+        [str(python), "-m", "pip", "freeze"],
+        capture_output=True, text=True, check=False, cwd=cwd,
+    )
+    return result.stdout or ""
+
+
 def run(ctx: Context) -> dict:
-    exe = shutil.which("pip-audit")
+    exe = find_tool("pip-audit")
     if exe is None:
         raise ToolMissing("pip-audit not installed")
+
+    target_python = ctx.repo / ".venv" / "bin" / "python" if ctx.repo else None
+    if target_python is not None and target_python.exists():
+        frozen = _freeze(target_python, ctx.repo)
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as tmp:
+            tmp.write(frozen)
+            tmp_path = tmp.name
+        try:
+            cmd = [exe, "-r", tmp_path, "--disable-pip", "-f", "json"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=ctx.repo)
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+        return json.loads(result.stdout or "{}")
+
     requirements = ctx.repo / "requirements.txt" if ctx.repo else None
     if requirements is not None and requirements.exists():
         cmd = [exe, "-r", str(requirements), "-f", "json"]
-    elif ctx.repo is not None and (ctx.repo / ".venv").exists():
-        cmd = [exe, "--local", "-f", "json"]
-    else:
-        raise ToolMissing("no requirements file or virtualenv found")
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=ctx.repo)
-    return json.loads(result.stdout or "{}")
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=ctx.repo)
+        return json.loads(result.stdout or "{}")
+
+    raise ToolMissing("no requirements file or virtualenv found")
 
 
 def parse(raw: dict, ctx: Context) -> list[Finding]:

@@ -1,19 +1,19 @@
-"""bandit -r <repo> -f json -x <repo>/.venv,<repo>/node_modules"""
+"""bandit -r <repo> -f json -q -x <repo>/.venv,<repo>/node_modules"""
 from __future__ import annotations
 
 import json
-import shutil
+import shutil  # noqa: F401 - re-exported so tests can monkeypatch bandit.shutil.which
 import subprocess
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing, relpath
+from .base import Context, ToolMissing, find_tool, relpath
 
 SOURCE = "bandit"
 
 
 def tool_version() -> str | None:
-    exe = shutil.which("bandit")
+    exe = find_tool("bandit")
     if exe is None:
         return None
     try:
@@ -25,15 +25,24 @@ def tool_version() -> str | None:
 
 
 def run(ctx: Context) -> dict:
-    exe = shutil.which("bandit")
+    exe = find_tool("bandit")
     if exe is None:
         raise ToolMissing("bandit not installed")
     exclude = f"{ctx.repo}/.venv,{ctx.repo}/node_modules"
     result = subprocess.run(
-        [exe, "-r", str(ctx.repo), "-f", "json", "-x", exclude],
+        [exe, "-r", str(ctx.repo), "-f", "json", "-q", "-x", exclude],
         capture_output=True, text=True, check=False,
     )
-    return json.loads(result.stdout or "{}")
+    # bandit exits 1 when it *has* findings, not when it fails, and prints a
+    # "Working... 100%" progress line to stdout ahead of the JSON when stdout
+    # isn't a TTY (observed live against the orchestrator repo) even with
+    # -q. Parse from the first '{' instead of trusting the whole stdout to
+    # be JSON; only raise when there's no JSON object at all.
+    stdout = result.stdout or ""
+    start = stdout.find("{")
+    if start == -1:
+        raise ValueError(f"bandit produced no JSON output (exit {result.returncode})")
+    return json.loads(stdout[start:])
 
 
 def parse(raw: dict, ctx: Context) -> list[Finding]:

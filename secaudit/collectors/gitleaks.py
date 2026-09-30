@@ -7,20 +7,19 @@ in-collector so the raw value never reaches Finding.evidence.
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing
+from .base import Context, ToolMissing, find_tool
 
 SOURCE = "gitleaks"
 
 
 def tool_version() -> str | None:
-    exe = shutil.which("gitleaks")
+    exe = find_tool("gitleaks")
     if exe is None:
         return None
     try:
@@ -32,7 +31,7 @@ def tool_version() -> str | None:
 
 
 def run(ctx: Context) -> list[dict]:
-    exe = shutil.which("gitleaks")
+    exe = find_tool("gitleaks")
     if exe is None:
         raise ToolMissing("gitleaks not installed")
     with tempfile.TemporaryDirectory() as tmp:

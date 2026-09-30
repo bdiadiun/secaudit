@@ -7,18 +7,17 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing, relpath
+from .base import Context, ToolMissing, find_tool, relpath
 
 SOURCE = "semgrep"
 
 
 def tool_version() -> str | None:
-    exe = shutil.which("semgrep")
+    exe = find_tool("semgrep")
     if exe is None:
         return None
     try:
@@ -32,7 +31,7 @@ def tool_version() -> str | None:
 def run(ctx: Context) -> dict:
     if os.environ.get("SECAUDIT_OFFLINE") == "1":
         raise ToolMissing("semgrep rules need network")
-    exe = shutil.which("semgrep")
+    exe = find_tool("semgrep")
     if exe is None:
         raise ToolMissing("semgrep not installed")
     result = subprocess.run(

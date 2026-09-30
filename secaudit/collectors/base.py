@@ -3,8 +3,26 @@ signal every collector's `run` raises instead of crashing the scan.
 """
 from __future__ import annotations
 
+import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+
+def find_tool(name: str) -> str | None:
+    """Look up a collector's binary on `PATH`, falling back to the
+    directory `sys.executable` lives in: `pip install secaudit bandit`
+    into one venv must work without activating that venv first, so the
+    binary can sit next to secaudit's own interpreter without being on
+    `PATH`.
+    """
+    exe = shutil.which(name)
+    if exe is not None:
+        return exe
+    candidate = Path(sys.executable).parent / name
+    if candidate.is_file():
+        return str(candidate)
+    return None
 
 
 @dataclass

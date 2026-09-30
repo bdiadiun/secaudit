@@ -27,6 +27,10 @@ from .schema import Finding, Report
 app = typer.Typer(add_completion=False)
 
 _COLLECTORS = [bandit, semgrep, pip_audit, osv, gitleaks, zap, ratelimit]
+# The repo-scanning collectors: if every one of these is skipped, nothing
+# actually looked at the target repo, unlike zap/ratelimit which only ever
+# run against --url and don't count towards "no scanner ran".
+_REPO_COLLECTOR_SOURCES = {bandit.SOURCE, semgrep.SOURCE, pip_audit.SOURCE, osv.SOURCE, gitleaks.SOURCE}
 _SEVERITY_RANK = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 
@@ -136,6 +140,11 @@ def scan(
 
     out.mkdir(parents=True, exist_ok=True)
     (out / "findings.json").write_text(report.model_dump_json(indent=2))
+
+    skipped_sources = {entry["source"] for entry in skipped}
+    if _REPO_COLLECTOR_SOURCES <= skipped_sources:
+        typer.echo("no scanner ran", err=True)
+        raise typer.Exit(code=2)
 
     threshold = _SEVERITY_RANK[fail_on]
     trips = any(

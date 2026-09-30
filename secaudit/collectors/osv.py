@@ -2,18 +2,17 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing
+from .base import Context, ToolMissing, find_tool
 
 SOURCE = "osv"
 
 
 def tool_version() -> str | None:
-    exe = shutil.which("osv-scanner")
+    exe = find_tool("osv-scanner")
     if exe is None:
         return None
     try:
@@ -25,7 +24,7 @@ def tool_version() -> str | None:
 
 
 def run(ctx: Context) -> dict:
-    exe = shutil.which("osv-scanner")
+    exe = find_tool("osv-scanner")
     if exe is None:
         raise ToolMissing("osv-scanner not installed")
     result = subprocess.run(
