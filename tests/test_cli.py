@@ -86,6 +86,25 @@ def _patch_one_finding(monkeypatch, calls, source, severity):
     monkeypatch.setattr(target, "parse", _parse)
 
 
+def _patch_one_survivor(monkeypatch, calls, source):
+    """All collectors ToolMissing except `source`, whose run succeeds with
+    zero findings. Keeps at least one repo collector "alive" so the scan
+    doesn't trip invariant 15's empty-scan guard (all five repo collectors
+    skipped -> exit 2) in tests aimed at something other than that guard."""
+    _patch_all_skip(monkeypatch, calls)
+    target = next(m for m in COLLECTORS if m.SOURCE == source)
+
+    def _run(ctx):
+        calls.append(source)
+        return {"stub": True}
+
+    def _parse(raw, ctx):
+        return []
+
+    monkeypatch.setattr(target, "run", _run)
+    monkeypatch.setattr(target, "parse", _parse)
+
+
 def test_scan_rejects_non_loopback_url_with_exit_2_and_no_collector_call(tmp_path, monkeypatch):
     calls = []
     _patch_all_skip(monkeypatch, calls)
@@ -104,7 +123,7 @@ def test_scan_rejects_non_loopback_url_with_exit_2_and_no_collector_call(tmp_pat
 ])
 def test_scan_accepts_loopback_urls(tmp_path, monkeypatch, url):
     calls = []
-    _patch_all_skip(monkeypatch, calls)
+    _patch_one_survivor(monkeypatch, calls, osv.SOURCE)
     result = runner.invoke(app, [
         "scan", "--repo", str(tmp_path), "--out", str(tmp_path / "out"), "--url", url,
     ])
@@ -121,14 +140,11 @@ def test_scan_help_exposes_no_loopback_override_option():
 
 def test_missing_tool_is_recorded_in_run_skipped_and_others_still_run(tmp_path, monkeypatch):
     calls = []
-    _patch_all_skip(monkeypatch, calls)
+    # osv stays "alive" (zero findings) so the scan doesn't also trip
+    # invariant 15's all-repo-collectors-skipped guard; bandit's ToolMissing
+    # comes from _patch_all_skip inside the helper, same as before.
+    _patch_one_survivor(monkeypatch, calls, osv.SOURCE)
     bandit_source = bandit.SOURCE
-
-    def _bandit_run(ctx):
-        calls.append("bandit")
-        raise ToolMissing("bandit not installed")
-
-    monkeypatch.setattr(bandit, "run", _bandit_run)
 
     out = tmp_path / "out"
     result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out)])
@@ -142,7 +158,9 @@ def test_missing_tool_is_recorded_in_run_skipped_and_others_still_run(tmp_path, 
 
 def test_collector_error_is_recorded_with_error_prefix_and_others_still_run(tmp_path, monkeypatch):
     calls = []
-    _patch_all_skip(monkeypatch, calls)
+    # osv stays "alive" (zero findings) so the scan doesn't also trip
+    # invariant 15's all-repo-collectors-skipped guard.
+    _patch_one_survivor(monkeypatch, calls, osv.SOURCE)
 
     def _semgrep_run(ctx):
         calls.append("semgrep")
