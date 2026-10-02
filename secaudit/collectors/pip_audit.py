@@ -11,8 +11,10 @@ still "pip-audit" per docs/spec.md.
 from __future__ import annotations
 
 import json
+import os
 import shutil  # noqa: F401 - re-exported so tests can monkeypatch pip_audit.shutil.which
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -35,6 +37,27 @@ def tool_version() -> str | None:
     return version or None
 
 
+def _candidate_pythons(repo: Path | None) -> list[Path]:
+    """Where the TARGET's interpreter may live, most specific first.
+
+    `<repo>/.venv` is the plain case. An orchestrator keeps a task's venv next
+    to the worktree (`<worktree>.venv`, `<worktree>.venv-linux` in a Linux
+    container) so git never sees it — a live run skipped pip-audit on seven
+    reports in a row before this list existed. `VIRTUAL_ENV` is last and only
+    when it is not the environment secaudit itself runs in.
+    """
+    out: list[Path] = []
+    if repo is not None:
+        repo = Path(repo)
+        out.append(repo / ".venv" / "bin" / "python")
+        out.append(repo.parent / f"{repo.name}.venv" / "bin" / "python")
+        out.append(repo.parent / f"{repo.name}.venv-linux" / "bin" / "python")
+    venv = os.environ.get("VIRTUAL_ENV")
+    if venv and Path(venv).resolve() != Path(sys.prefix).resolve():
+        out.append(Path(venv) / "bin" / "python")
+    return out
+
+
 def _freeze(python: Path, cwd: Path | None) -> str:
     result = subprocess.run(
         [str(python), "-m", "pip", "freeze"],
@@ -48,8 +71,9 @@ def run(ctx: Context) -> dict:
     if exe is None:
         raise ToolMissing("pip-audit not installed")
 
-    target_python = ctx.repo / ".venv" / "bin" / "python" if ctx.repo else None
-    if target_python is not None and target_python.exists():
+    candidates = _candidate_pythons(ctx.repo)
+    target_python = next((c for c in candidates if c.exists()), None)
+    if target_python is not None:
         frozen = _freeze(target_python, ctx.repo)
         with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as tmp:
             tmp.write(frozen)
@@ -67,7 +91,10 @@ def run(ctx: Context) -> dict:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=ctx.repo)
         return json.loads(result.stdout or "{}")
 
-    raise ToolMissing("no requirements file or virtualenv found")
+    raise ToolMissing(
+            "no virtualenv or requirements file; looked for "
+            + ", ".join(str(c) for c in candidates)
+        )
 
 
 def parse(raw: dict, ctx: Context) -> list[Finding]:
