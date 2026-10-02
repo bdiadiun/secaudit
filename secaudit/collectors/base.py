@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -31,6 +31,9 @@ class Context:
     url: str | None = None
     only: set[str] | None = None
     skip: set[str] | None = None
+    # lang -> frameworks, from `scan --stack`; semgrep builds its --config
+    # packs from this instead of the network-dependent `--config auto`.
+    stack: dict[str, list[str]] = field(default_factory=dict)
 
 
 class ToolMissing(Exception):

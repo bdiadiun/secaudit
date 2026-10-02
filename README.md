@@ -30,13 +30,18 @@ it from a shell the same way.
 ## Usage
 
 ```
-secaudit scan --repo . --out .secaudit/
+secaudit scan --repo . --out .secaudit/ --stack python:fastapi,jinja2
 secaudit scan --repo . --url http://127.0.0.1:8000 --out .secaudit/ \
+              --stack "python:fastapi,jinja2;node:react" \
               --baseline .secaudit/baseline.json --accepted .secaudit/accepted.yml \
               --fail-on high
 secaudit report .secaudit/findings.json > .secaudit/report.md
 secaudit baseline .secaudit/findings.json --out .secaudit/baseline.json
 ```
+
+`--stack <lang[:fw,...];lang[:fw,...]>` is required: it replaces semgrep's
+network-guessing `--config auto` with a fixed pack list (see `docs/spec.md`).
+An unknown or missing stack does not start a scan.
 
 Exit codes of `scan`: `0` clean at the `--fail-on` threshold, `1` at least one
 `new` or `known` finding at or above it, `2` usage or collector error (missing

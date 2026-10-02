@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 Severity = Literal["critical", "high", "medium", "low", "info"]
 Confidence = Literal["high", "medium", "low"]
@@ -32,6 +32,9 @@ class Target(BaseModel):
     repo: str
     commit: str | None = None
     url: str | None = None
+    # As passed to `scan --stack` (lang -> frameworks) — the report must show
+    # which stack the semgrep config pack selection was derived from.
+    stack: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class SkippedTool(BaseModel):

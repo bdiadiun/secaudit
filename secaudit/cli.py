@@ -60,12 +60,38 @@ def _load_baseline_findings(path: Path) -> list[Finding]:
     return [Finding.model_validate(f) for f in data.get("findings", [])]
 
 
+def _parse_stack(raw: str) -> dict[str, list[str]]:
+    """"python:fastapi,jinja2;node:react" -> {"python": ["fastapi", "jinja2"],
+    "node": ["react"]}. Unknown langs/frameworks are kept as-is here —
+    rejecting those is the collector's job (a ruleset gap is a skip, not a
+    usage error); this only rejects syntactic garbage, which collapses to
+    the same empty dict as "not passed".
+    """
+    stack: dict[str, list[str]] = {}
+    for part in raw.split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        lang, _, fws = part.partition(":")
+        lang = lang.strip()
+        if not lang:
+            continue
+        stack[lang] = [fw.strip() for fw in fws.split(",") if fw.strip()]
+    return stack
+
+
 @app.command()
 def scan(
     repo: Path = typer.Option(..., exists=True, file_okay=False),
     out: Path = typer.Option(...),
     url: str | None = typer.Option(
         None, help="Loopback target for zap/ratelimit; refused if not 127.0.0.0/8, ::1 or localhost."
+    ),
+    stack: str | None = typer.Option(
+        None, "--stack",
+        help="Required. lang[:fw,...];lang[:fw,...], e.g. 'python:fastapi,jinja2;node:react'. "
+        "semgrep's --config packs are chosen from this instead of --config auto; "
+        "an unknown/missing stack does not start a scan.",
     ),
     baseline: Path | None = typer.Option(None, help="Previous findings.json to diff against."),
     accepted: Path | None = typer.Option(None, help="accepted.yml of accepted-risk fingerprints."),
@@ -78,6 +104,11 @@ def scan(
         typer.echo(f"unknown --fail-on severity: {fail_on!r}", err=True)
         raise typer.Exit(code=2)
 
+    parsed_stack = _parse_stack(stack) if stack else {}
+    if not parsed_stack:
+        typer.echo("stack unknown: pass --stack <lang[:fw,...];...>", err=True)
+        raise typer.Exit(code=2)
+
     if url is not None:
         host = urlsplit(url).hostname or ""
         if not _is_loopback_host(host):
@@ -85,7 +116,7 @@ def scan(
             raise typer.Exit(code=2)
 
     started_at = datetime.now(timezone.utc).isoformat()
-    ctx = Context(repo=repo, url=url)
+    ctx = Context(repo=repo, url=url, stack=parsed_stack)
 
     findings: list[Finding] = []
     tools: dict[str, str | None] = {}
@@ -126,7 +157,7 @@ def scan(
 
     report = Report.model_validate({
         "schema_version": "1.0",
-        "target": {"repo": str(repo), "commit": _git_commit(repo), "url": url},
+        "target": {"repo": str(repo), "commit": _git_commit(repo), "url": url, "stack": parsed_stack},
         "run": {
             "started_at": started_at,
             "finished_at": finished_at,

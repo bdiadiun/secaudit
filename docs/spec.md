@@ -11,7 +11,8 @@ with collectors monkeypatched to return fixtures.
 ```jsonc
 Report {
   "schema_version": "1.0",
-  "target":   { "repo": str, "commit": str|null, "url": str|null },
+  "target":   { "repo": str, "commit": str|null, "url": str|null,
+                "stack": { "<lang>": ["<framework>", ...] } },
   "run":      { "started_at": iso, "finished_at": iso,
                 "tools": { "<source>": "<version>|null" },
                 "skipped": [ { "source": str, "reason": str } ] },
@@ -97,10 +98,23 @@ the findings (a broken collector must not hide the other five).
   progress line to stdout ahead of the JSON when stdout is not a TTY and
   `-q` is not honoured, so `run()` parses from the first `{`, and raises
   only when no JSON object is there. Fixture: `bandit.json`.
-- **semgrep**: `semgrep --config auto --json --quiet <repo>`. Fixture:
-  `semgrep.json`. `--config auto` needs network; with `SECAUDIT_OFFLINE=1`
-  the collector raises `ToolMissing("semgrep rules need network")` and is
-  skipped like an absent binary.
+- **semgrep**: `semgrep --config <packs from --stack> --json --quiet <repo>`.
+  Operator decision: `--config auto` is rejected (it calls the semgrep
+  registry to guess a ruleset, silently, on every run); `scan --stack
+  <lang[:fw,...];...>` is required instead and maps to a fixed pack list —
+  `python` → `p/python`; `node`/`javascript`/`typescript` → `p/javascript`,
+  `p/typescript`, `p/nodejs`; `ruby` → `p/ruby`; `go` → `p/golang`; `rust` →
+  `p/rust`; `php` → `p/php`; `jvm`/`java` → `p/java`; frameworks `fastapi` →
+  `p/fastapi`, `flask` → `p/flask`, `django` → `p/django`, `jinja2` →
+  `p/jinja2`, `react` → `p/react`, `express` → `p/express`, `next` →
+  `p/nextjs`, `rails` → `p/rails`; `p/dockerfile` is added when the repo has
+  a `Dockerfile` and at least one other pack resolved. An unknown
+  lang/framework is ignored; a stack none of whose languages resolve to a
+  pack raises `ToolMissing("no semgrep ruleset for stack …")` — a skip, not
+  a silent `auto`. Fixture: `semgrep.json`. The packs still come from the
+  semgrep registry over the network; `SECAUDIT_OFFLINE=1` raises
+  `ToolMissing("semgrep rules need network")` and is skipped like an absent
+  binary.
 - **pip-audit**: audits the **target's** environment, never its own. The
   target python is the first that exists of: `<repo>/.venv/bin/python`,
   the siblings `<repo-parent>/<repo-name>.venv/bin/python` and
@@ -138,6 +152,16 @@ A scan in which **no** repository collector ran (every one of bandit,
 semgrep, pip-audit, osv, gitleaks is in `run.skipped`) is not a clean scan:
 exit `2`, message "no scanner ran", `findings.json` still written so the
 reason is inspectable. `--url`-only collectors do not count.
+
+## Stack (`scan --stack`)
+
+`--stack <lang[:fw,...];lang[:fw,...]>` (e.g. `python:fastapi,jinja2;node:react`)
+is required. Missing or syntactically empty (blank, or only `;`/`:`/`,`
+separators with no lang) → exit `2`, message `stack unknown: pass --stack
+<lang[:fw,...];...>`, nothing runs. There is no "scan with whatever you can
+guess" mode: an unknown stack does not start a scan. The parsed
+`{lang: [framework, ...]}` is recorded on `target.stack` and is the only
+input to semgrep's `--config` selection (see above).
 
 ## Loopback rule
 
@@ -229,11 +253,18 @@ list this way instead of locating the installed package.
     present the freeze runs with that python; with only `$VIRTUAL_ENV`
     (prefix ≠ `sys.prefix`) with that one; `<repo>/.venv` wins over both;
     none → `ToolMissing` whose message names the three paths.
+21. `scan` without `--stack` (or an empty one) exits `2` before any collector
+    runs. semgrep's `run()` turns `ctx.stack` into `--config` packs per the
+    table above, never `auto`; a stack with no resolvable pack raises
+    `ToolMissing` instead of invoking semgrep. `target.stack` in
+    `findings.json` equals the parsed `--stack`.
 
 ## By hand (after green)
 
-- `secaudit scan --repo <orchestrator> --out /tmp/sa` with real tools
-  installed: compare `run.tools` with `--version` of each; open `report.md`.
+- `secaudit scan --repo <orchestrator> --out /tmp/sa --stack python:fastapi`
+  with real tools installed: compare `run.tools` with `--version` of each;
+  open `report.md`; confirm semgrep's actual argv has `p/python p/fastapi`,
+  not `auto`.
 - With the orchestrator running: add `--url http://127.0.0.1:8000`; confirm
   ZAP baseline finished under 3 min and `ratelimit` touched only auth paths
   (server log).

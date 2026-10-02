@@ -44,7 +44,7 @@ def test_all_repo_collectors_skipped_exits_2_and_writes_findings_json(tmp_path, 
     calls = []
     _patch_all_skip(monkeypatch, calls)
     out = tmp_path / "out"
-    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out)])
+    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out), "--stack", "python"])
     assert result.exit_code == 2
     assert (out / "findings.json").exists()
 
@@ -53,7 +53,7 @@ def test_one_repo_collector_running_exits_by_findings_not_by_skip_count(tmp_path
     calls = []
     _patch_one_finding(monkeypatch, calls, bandit.SOURCE, "low")
     out = tmp_path / "out"
-    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out)])
+    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out), "--stack", "python"])
     assert result.exit_code == 0
 
 

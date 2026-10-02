@@ -110,6 +110,7 @@ def test_scan_rejects_non_loopback_url_with_exit_2_and_no_collector_call(tmp_pat
     _patch_all_skip(monkeypatch, calls)
     result = runner.invoke(app, [
         "scan", "--repo", str(tmp_path), "--out", str(tmp_path / "out"),
+        "--stack", "python",
         "--url", "http://example.com",
     ])
     assert result.exit_code == 2
@@ -125,7 +126,7 @@ def test_scan_accepts_loopback_urls(tmp_path, monkeypatch, url):
     calls = []
     _patch_one_survivor(monkeypatch, calls, osv.SOURCE)
     result = runner.invoke(app, [
-        "scan", "--repo", str(tmp_path), "--out", str(tmp_path / "out"), "--url", url,
+        "scan", "--repo", str(tmp_path), "--out", str(tmp_path / "out"), "--stack", "python", "--url", url,
     ])
     assert result.exit_code == 0
 
@@ -147,7 +148,7 @@ def test_missing_tool_is_recorded_in_run_skipped_and_others_still_run(tmp_path, 
     bandit_source = bandit.SOURCE
 
     out = tmp_path / "out"
-    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out)])
+    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out), "--stack", "python"])
     assert result.exit_code == 0
     data = json.loads((out / "findings.json").read_text())
     skipped_sources = {s["source"] for s in data["run"]["skipped"]}
@@ -169,7 +170,7 @@ def test_collector_error_is_recorded_with_error_prefix_and_others_still_run(tmp_
     monkeypatch.setattr(semgrep, "run", _semgrep_run)
 
     out = tmp_path / "out"
-    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out)])
+    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out), "--stack", "python"])
     assert result.exit_code == 0
     data = json.loads((out / "findings.json").read_text())
     entry = next(s for s in data["run"]["skipped"] if s["source"] == "semgrep")
@@ -181,7 +182,7 @@ def test_fail_on_default_high_with_only_medium_finding_exits_0(tmp_path, monkeyp
     calls = []
     _patch_one_finding(monkeypatch, calls, bandit.SOURCE, "medium")
     out = tmp_path / "out"
-    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out)])
+    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out), "--stack", "python"])
     assert result.exit_code == 0
 
 
@@ -189,7 +190,7 @@ def test_fail_on_default_high_with_high_finding_exits_1(tmp_path, monkeypatch):
     calls = []
     _patch_one_finding(monkeypatch, calls, bandit.SOURCE, "high")
     out = tmp_path / "out"
-    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out)])
+    result = runner.invoke(app, ["scan", "--repo", str(tmp_path), "--out", str(out), "--stack", "python"])
     assert result.exit_code == 1
 
 
@@ -198,7 +199,7 @@ def test_fail_on_medium_with_medium_finding_exits_1(tmp_path, monkeypatch):
     _patch_one_finding(monkeypatch, calls, bandit.SOURCE, "medium")
     out = tmp_path / "out"
     result = runner.invoke(app, [
-        "scan", "--repo", str(tmp_path), "--out", str(out), "--fail-on", "medium",
+        "scan", "--repo", str(tmp_path), "--out", str(out), "--stack", "python", "--fail-on", "medium",
     ])
     assert result.exit_code == 1
 
