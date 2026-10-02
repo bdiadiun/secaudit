@@ -101,13 +101,17 @@ the findings (a broken collector must not hide the other five).
   `semgrep.json`. `--config auto` needs network; with `SECAUDIT_OFFLINE=1`
   the collector raises `ToolMissing("semgrep rules need network")` and is
   skipped like an absent binary.
-- **pip-audit**: audits the **target's** environment, never its own. When
-  `<repo>/.venv/bin/python` exists: `<that python> -m pip freeze` to a temp
-  file, then `pip-audit -r <tmp> --disable-pip -f json` (pinned input, no
-  resolution, no install). Else `requirements.txt` → `pip-audit -r … -f json`.
-  Else `ToolMissing("no virtualenv or requirements file")`. `--local` is
-  never used: it would audit the venv `secaudit` is installed in. Fixture:
-  `pip_audit.json`.
+- **pip-audit**: audits the **target's** environment, never its own. The
+  target python is the first that exists of: `<repo>/.venv/bin/python`,
+  the siblings `<repo-parent>/<repo-name>.venv/bin/python` and
+  `<repo-parent>/<repo-name>.venv-linux/bin/python` (an orchestrator keeps a
+  task's venv next to its worktree, outside git's sight), and
+  `$VIRTUAL_ENV/bin/python` when that prefix is not `sys.prefix`. With it:
+  `<that python> -m pip freeze` to a temp file, then `pip-audit -r <tmp>
+  --disable-pip -f json` (pinned input, no resolution, no install). Else
+  `requirements.txt` → `pip-audit -r … -f json`. Else `ToolMissing("no
+  virtualenv or requirements file")`, and the message lists the paths it
+  looked at. `--local` is never used. Fixture: `pip_audit.json`.
 - **osv**: `osv-scanner --format json -r <repo>`; scans every lockfile it
   finds. Fixture: `osv.json`.
 - **gitleaks**: `gitleaks detect -s <repo> -f json -r <tmp>`; a finding whose
@@ -220,6 +224,11 @@ list this way instead of locating the installed package.
     result never contains a finding whose file is under `tests/` or is a
     `test_*.py` / `conftest.py` (`parse` drops them too, in case the tool
     ignores a glob).
+
+20. pip-audit target discovery: with only `<repo-parent>/<repo-name>.venv-linux/bin/python`
+    present the freeze runs with that python; with only `$VIRTUAL_ENV`
+    (prefix ≠ `sys.prefix`) with that one; `<repo>/.venv` wins over both;
+    none → `ToolMissing` whose message names the three paths.
 
 ## By hand (after green)
 
