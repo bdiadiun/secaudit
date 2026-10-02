@@ -14,6 +14,15 @@ Invariant 18: pip-audit's run(), when the target repo has a `.venv`, freezes
 that venv's own interpreter (not `sys.executable`, which is secaudit's own
 venv) and audits the frozen list with `-r ... --disable-pip`, never
 `--local` (which would audit secaudit's own venv instead of the target's).
+
+Invariant 20: pip-audit's target python search order is
+`<repo>/.venv/bin/python`, then the siblings
+`<repo-parent>/<repo-name>.venv/bin/python` and
+`<repo-parent>/<repo-name>.venv-linux/bin/python` (an orchestrator keeps a
+task's venv next to its worktree, outside git's sight), then
+`$VIRTUAL_ENV/bin/python` when that prefix is not `sys.prefix`; when none of
+those exist, `run()` raises `ToolMissing` and the message lists the three
+repo-relative candidate paths it looked at.
 """
 from __future__ import annotations
 
@@ -116,3 +125,97 @@ def test_pip_audit_run_freezes_target_venv_python_and_disables_pip(tmp_path, mon
     assert "-r" in audit_cmd
     assert "--disable-pip" in audit_cmd
     assert "--local" not in audit_cmd
+
+
+def _make_python(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n")
+    path.chmod(0o755)
+    return path
+
+
+def _fake_run_recording(calls, target_pythons):
+    def fake_run(cmd, capture_output=True, text=True, check=False, cwd=None):
+        calls.append(list(cmd))
+        if cmd and cmd[0] in {str(p) for p in target_pythons}:
+            return subprocess.CompletedProcess(cmd, returncode=0, stdout="requests==1.0.0\n", stderr="")
+        return subprocess.CompletedProcess(cmd, returncode=0, stdout=json.dumps({"dependencies": []}), stderr="")
+    return fake_run
+
+
+def test_pip_audit_run_freezes_sibling_venv_linux_python_when_no_repo_venv(tmp_path, monkeypatch):
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    sibling_linux_python = _make_python(tmp_path / "repo.venv-linux" / "bin" / "python")
+
+    monkeypatch.setattr(pip_audit.shutil, "which", lambda name: "/usr/bin/pip-audit")
+    calls = []
+    monkeypatch.setattr(pip_audit.subprocess, "run", _fake_run_recording(calls, [sibling_linux_python]))
+
+    pip_audit.run(Context(repo=repo))
+
+    freeze_calls = [c for c in calls if c and c[0] == str(sibling_linux_python)]
+    assert freeze_calls, f"expected a freeze call using {sibling_linux_python}, got {calls}"
+
+
+def test_pip_audit_run_freezes_virtual_env_python_when_no_repo_or_sibling_venv(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    venv_dir = tmp_path / "active-env"
+    venv_python = _make_python(venv_dir / "bin" / "python")
+    monkeypatch.setenv("VIRTUAL_ENV", str(venv_dir))
+
+    monkeypatch.setattr(pip_audit.shutil, "which", lambda name: "/usr/bin/pip-audit")
+    calls = []
+    monkeypatch.setattr(pip_audit.subprocess, "run", _fake_run_recording(calls, [venv_python]))
+
+    pip_audit.run(Context(repo=repo))
+
+    freeze_calls = [c for c in calls if c and c[0] == str(venv_python)]
+    assert freeze_calls, f"expected a freeze call using {venv_python}, got {calls}"
+
+
+def test_pip_audit_run_prefers_repo_venv_python_over_sibling_venv(tmp_path, monkeypatch):
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    repo = tmp_path / "repo"
+    repo_python = _make_python(repo / ".venv" / "bin" / "python")
+    sibling_python = _make_python(tmp_path / "repo.venv" / "bin" / "python")
+
+    monkeypatch.setattr(pip_audit.shutil, "which", lambda name: "/usr/bin/pip-audit")
+    calls = []
+    monkeypatch.setattr(
+        pip_audit.subprocess, "run", _fake_run_recording(calls, [repo_python, sibling_python])
+    )
+
+    pip_audit.run(Context(repo=repo))
+
+    freeze_calls = [c for c in calls if c and c[0] in {str(repo_python), str(sibling_python)}]
+    assert freeze_calls == [[str(repo_python), "-m", "pip", "freeze"]], (
+        f"expected the repo's own .venv python to win over the sibling, got {calls}"
+    )
+
+
+def test_pip_audit_run_raises_tool_missing_listing_all_candidate_paths_when_no_python_found(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    monkeypatch.setattr(pip_audit.shutil, "which", lambda name: "/usr/bin/pip-audit")
+
+    try:
+        pip_audit.run(Context(repo=repo))
+    except pip_audit.ToolMissing as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("expected ToolMissing when no target venv python exists")
+
+    expected_paths = [
+        repo / ".venv" / "bin" / "python",
+        tmp_path / "repo.venv" / "bin" / "python",
+        tmp_path / "repo.venv-linux" / "bin" / "python",
+    ]
+    for path in expected_paths:
+        assert str(path) in message, f"expected {path} listed in ToolMissing message, got: {message}"
