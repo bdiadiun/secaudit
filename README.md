@@ -50,7 +50,9 @@ tool is a *warning* in `run.skipped`, not an error — see spec).
 Missing scanners are skipped and reported, never silently. Install them
 separately: `pip install bandit pip-audit semgrep`, `brew install gitleaks
 osv-scanner`, ZAP via `docker run ghcr.io/zaproxy/zaproxy:stable
-zap-baseline.py`.
+zap-baseline.py`. secaudit stages ZAP's bind-mounted report dir under
+`--out` rather than system temp, since colima/Docker Desktop only share the
+host's own tree with the container.
 
 ## Layout
 

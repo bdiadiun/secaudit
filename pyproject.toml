@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "secaudit"
-version = "0.1.2"
+version = "0.1.3"
 description = "Run established security scanners against your own repo and local instance; normalise findings into one schema."
 readme = "README.md"
 requires-python = ">=3.11"

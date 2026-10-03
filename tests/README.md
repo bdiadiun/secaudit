@@ -27,9 +27,11 @@ the contract:
   pydantic model (`reason: str`, `by: str`, `date: date`,
   `expires: date | None`), not a plain dict, so callers use attribute access
   (`finding.accepted.reason`).
-- `secaudit.collectors.base.Context(repo: Path, url: str | None = None, only: set[str] | None = None, skip: set[str] | None = None, stack: dict[str, list[str]] = {})`
+- `secaudit.collectors.base.Context(repo: Path, url: str | None = None, out: Path | None = None, only: set[str] | None = None, skip: set[str] | None = None, stack: dict[str, list[str]] = {})`
   — `stack` is `scan --stack`'s parsed `{lang: [framework, ...]}`; only
   `semgrep.run()` reads it (building `--config` packs instead of `auto`).
+  `out` is `scan --out`; zap.run() stages its bind-mounted report dir under
+  it (colima/Docker Desktop only share paths under the host's own tree).
 - `secaudit.collectors.base.ToolMissing(Exception)`
 - One module per source: `secaudit.collectors.bandit`, `.semgrep`,
   `.pip_audit` (source string is still `"pip-audit"`), `.osv`, `.gitleaks`,

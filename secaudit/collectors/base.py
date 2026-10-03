@@ -29,6 +29,12 @@ def find_tool(name: str) -> str | None:
 class Context:
     repo: Path | None
     url: str | None = None
+    # Where `scan --out` writes findings.json. zap's run() also stages its
+    # bind-mounted report dir under here: on colima/Docker Desktop only
+    # paths under the host's shared prefix (repo tree, not system /tmp or
+    # /var/folders) are visible inside the container, so a tempfile.mkdtemp
+    # outside this tree mounts empty and zap can never write its report.
+    out: Path | None = None
     only: set[str] | None = None
     skip: set[str] | None = None
     # lang -> frameworks, from `scan --stack`; semgrep builds its --config

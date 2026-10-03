@@ -131,9 +131,16 @@ the findings (a broken collector must not hide the other five).
 - **gitleaks**: `gitleaks detect -s <repo> -f json -r <tmp>`; a finding whose
   `File` is in the current tree at the same fingerprint is "working tree",
   else "history". Fixture: `gitleaks.json`.
-- **zap**: only when `--url`; `docker run --rm --network host
-  ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t <url> -J <out>`; missing
-  docker → `ToolMissing`. Fixture: `zap.json`. Location is `{url, method}`.
+- **zap**: only when `--url`; `docker run --rm --network host -v
+  <dir>:/zap/wrk:rw ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t <url>
+  -J zap.json -I -T 5`. `<dir>` is a fresh subdirectory of `--out` (made
+  world-writable — the container's `zap` user needs to write the report),
+  never system temp: on colima/Docker Desktop only paths under the host's
+  own shared tree are visible inside the container, so a `/tmp` mount comes
+  back empty. Missing docker, `--out` unset, a timeout, or a report that
+  never appears → `ToolMissing` (finding 69 — without this, docker silently
+  produced no report and every scan came back 0 alerts). Fixture: `zap.json`.
+  Location is `{url, method}`.
 - **ratelimit**: only when `--url`; discovers `/openapi.json` at the URL,
   picks paths matching `login|token|auth|session|password` with `POST`, sends
   30 requests in 5 s with an invalid body, and reports one finding per path

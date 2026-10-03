@@ -116,7 +116,10 @@ def scan(
             raise typer.Exit(code=2)
 
     started_at = datetime.now(timezone.utc).isoformat()
-    ctx = Context(repo=repo, url=url, stack=parsed_stack)
+    # Created before the collector loop: zap stages its bind-mounted report
+    # dir under here (see Context.out) and needs it to exist already.
+    out.mkdir(parents=True, exist_ok=True)
+    ctx = Context(repo=repo, url=url, stack=parsed_stack, out=out)
 
     findings: list[Finding] = []
     tools: dict[str, str | None] = {}
@@ -169,7 +172,6 @@ def scan(
         "baseline": {"path": str(baseline) if baseline else None, "commit": None},
     })
 
-    out.mkdir(parents=True, exist_ok=True)
     (out / "findings.json").write_text(report.model_dump_json(indent=2))
 
     skipped_sources = {entry["source"] for entry in skipped}
