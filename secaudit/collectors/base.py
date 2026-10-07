@@ -49,6 +49,34 @@ class ToolMissing(Exception):
     """
 
 
+class ToolCrashed(ToolMissing):
+    """The tool ran but died or printed nothing parseable. Subclasses
+    ToolMissing so the CLI files it under run.skipped instead of treating
+    an empty result as "0 findings" (osv-scanner SIGSEGV, 08.10).
+    """
+
+
+def load_json(result, tool: str, ok_codes: tuple[int, ...] = (0, 1), empty=None):
+    """Parse a finished subprocess's stdout, or raise ToolCrashed.
+
+    `ok_codes` is the tool's normal exit set (e.g. 1 = "findings present").
+    Anything else -- including negative signal codes -- is a crash, and an
+    empty/garbled stdout under a normal code is `invalid output`: neither may
+    degrade to an empty "clean" result.
+    """
+    import json
+
+    if result.returncode not in ok_codes:
+        raise ToolCrashed(f"crashed: exit {result.returncode}")
+    text = (result.stdout or "").strip()
+    if not text:
+        raise ToolCrashed("invalid output")
+    try:
+        return json.loads(text)
+    except ValueError as exc:
+        raise ToolCrashed("invalid output") from exc
+
+
 def relpath(path_str: str, repo: Path | None) -> str:
     """Best-effort repo-relative, posix path: scanners run with `-r <repo>`
     sometimes echo back an absolute path. Fixtures already use repo-relative

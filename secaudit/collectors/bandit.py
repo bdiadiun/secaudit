@@ -9,7 +9,7 @@ from pathlib import PurePosixPath
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing, find_tool, relpath
+from .base import Context, ToolCrashed, ToolMissing, find_tool, relpath
 
 SOURCE = "bandit"
 
@@ -53,11 +53,16 @@ def run(ctx: Context) -> dict:
     # isn't a TTY (observed live against the orchestrator repo) even with
     # -q. Parse from the first '{' instead of trusting the whole stdout to
     # be JSON; only raise when there's no JSON object at all.
+    if result.returncode not in (0, 1):
+        raise ToolCrashed(f"crashed: exit {result.returncode}")
     stdout = result.stdout or ""
     start = stdout.find("{")
     if start == -1:
-        raise ValueError(f"bandit produced no JSON output (exit {result.returncode})")
-    return json.loads(stdout[start:])
+        raise ToolCrashed("invalid output")
+    try:
+        return json.loads(stdout[start:])
+    except ValueError as exc:
+        raise ToolCrashed("invalid output") from exc
 
 
 def parse(raw: dict, ctx: Context) -> list[Finding]:

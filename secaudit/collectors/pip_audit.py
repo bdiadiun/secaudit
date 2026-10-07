@@ -20,7 +20,7 @@ from pathlib import Path
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing, find_tool
+from .base import Context, ToolMissing, find_tool, load_json
 
 SOURCE = "pip-audit"
 
@@ -83,13 +83,13 @@ def run(ctx: Context) -> dict:
             result = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=ctx.repo)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
-        return json.loads(result.stdout or "{}")
+        return load_json(result, "pip-audit", ok_codes=(0, 1))
 
     requirements = ctx.repo / "requirements.txt" if ctx.repo else None
     if requirements is not None and requirements.exists():
         cmd = [exe, "-r", str(requirements), "-f", "json"]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=ctx.repo)
-        return json.loads(result.stdout or "{}")
+        return load_json(result, "pip-audit", ok_codes=(0, 1))
 
     raise ToolMissing(
             "no virtualenv or requirements file; looked for "

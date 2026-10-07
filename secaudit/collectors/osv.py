@@ -6,7 +6,7 @@ import subprocess
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing, find_tool
+from .base import Context, ToolMissing, find_tool, load_json
 
 SOURCE = "osv"
 
@@ -31,7 +31,10 @@ def run(ctx: Context) -> dict:
         [exe, "--format", "json", "-r", str(ctx.repo)],
         capture_output=True, text=True, check=False,
     )
-    return json.loads(result.stdout or "{}")
+    # 128 = "no lockfiles found": a clean scan, with nothing on stdout.
+    if result.returncode == 128:
+        return {}
+    return load_json(result, "osv-scanner", ok_codes=(0, 1))
 
 
 def _cvss(vuln: dict) -> float | None:

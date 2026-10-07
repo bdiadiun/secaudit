@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing, find_tool, relpath
+from .base import Context, ToolMissing, find_tool, load_json, relpath
 
 SOURCE = "semgrep"
 
@@ -91,7 +91,7 @@ def run(ctx: Context) -> dict:
         [exe, *config_args, "--json", "--quiet", str(ctx.repo)],
         capture_output=True, text=True, check=False,
     )
-    return json.loads(result.stdout or "{}")
+    return load_json(result, "semgrep", ok_codes=(0, 1))
 
 
 def parse(raw: dict, ctx: Context) -> list[Finding]:

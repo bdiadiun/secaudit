@@ -13,7 +13,7 @@ from pathlib import Path
 
 from ..normalize import fingerprint, severity
 from ..schema import Finding
-from .base import Context, ToolMissing, find_tool
+from .base import Context, ToolCrashed, ToolMissing, find_tool
 
 SOURCE = "gitleaks"
 
@@ -36,13 +36,22 @@ def run(ctx: Context) -> list[dict]:
         raise ToolMissing("gitleaks not installed")
     with tempfile.TemporaryDirectory() as tmp:
         out_path = Path(tmp) / "gitleaks.json"
-        subprocess.run(
+        result = subprocess.run(
             [exe, "detect", "-s", str(ctx.repo), "-f", "json", "-r", str(out_path)],
             capture_output=True, text=True, check=False,
         )
+        # 0 = clean, 1 = leaks found; anything else is a crash. A clean run
+        # may write no report at all, but leaks (exit 1) with none is broken.
+        if result.returncode not in (0, 1):
+            raise ToolCrashed(f"crashed: exit {result.returncode}")
         if not out_path.exists():
+            if result.returncode == 1:
+                raise ToolCrashed("invalid output")
             return []
-        return json.loads(out_path.read_text() or "[]")
+        try:
+            return json.loads(out_path.read_text() or "[]")
+        except ValueError as exc:
+            raise ToolCrashed("invalid output") from exc
 
 
 def _redact(match: str, secret: str) -> str:
